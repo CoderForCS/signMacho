@@ -4,7 +4,7 @@
 
 
 # Help
-* -i input your ipa path, as "/Desktop/myapp/sign.ipa";/n
+* -i input your ipa path, as "/Desktop/myapp/sign.ipa";
 * -c input your identity name, as "XXXXCo., Ltd.";
 * -e input your profile path,as "/Desktop/myapp/embedded.mobileprovision"
 * [-o putout path]
