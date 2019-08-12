@@ -1,4 +1,4 @@
-# signMacho
+# SignMacho
 Use sign iOS ipa. 一款用于iOS重签名的命令行工具。
 
 # Help
