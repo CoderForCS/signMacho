@@ -7,5 +7,5 @@ Use sign iOS ipa. 一款用于iOS重签名的命令行工具。
 -e input your profile path,as "/Desktop/myapp/embedded.mobileprovision"
 [-o putout path]
 
-#Example
+# Example
 resign -i /Desktop/myapp/sign.ipa" -c "XXXXCo., Ltd." -e "/Desktop/myapp/embedded.mobileprovision" -o "/Desktop"
