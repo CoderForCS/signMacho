@@ -9,10 +9,10 @@ int main(int argc, char *argv[]){
 	char * ipaPtah = NULL;
 	char * identity= NULL;
 	char * embedded= NULL;
-	char * output. = NULL;
+	char * output  = NULL;
 	while(j<argc){
 
-		if (strcmp(argv[j],"-h") == 0)
+		if (strcmp(argv[j],"-h") == 0 || argc == 1)
 		{
 			resignHelp();
 			return -1;
@@ -63,7 +63,7 @@ int main(int argc, char *argv[]){
 				return -1;
 			}else{
 				fclose(fp);
-				printf("%s\n","Find this embedded..");
+				printf("%s\n","Find this embedded...");
 				embedded = argv[j+1];
 			}
 		}
@@ -75,13 +75,12 @@ int main(int argc, char *argv[]){
 		}
 		j++;
 	}
-
-	puts(ipaPtah);
-	puts(identity);
-	puts(embedded);
-	puts(output);
-
-	
+	printf("%s\n","------🔥. 开始签名 ------");
+	ERROR * error = startResigned(ipaPtah,identity,embedded,output);
+	if (error->errorCode != ERRORNULL)
+	{
+		printf("%s\n",error->errorMsg);
+	}
 
 
 	return 0;
