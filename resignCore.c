@@ -5,7 +5,6 @@
 
 #define _LINE_LENGTH 300
 char * payloadPath = "~/resign_temp_app/";
-
 void showAllIdentity(){
 	char *identityCmd = "security find-identity -p codesigning -v";
 	int status = system(identityCmd);
@@ -67,7 +66,6 @@ close:
 
 ERROR * startResigned(char * ipa,char *identity,char * embedded,char *output){
     char * unzipCmd = appendPayloadCmd(ipa);
-
    int status = system(unzipCmd);
    if (status == 0)
    {
@@ -78,12 +76,12 @@ ERROR * startResigned(char * ipa,char *identity,char * embedded,char *output){
 
     //1先将描述文件cpoy到app中
     ERROR * terror = (ERROR *)malloc(sizeof(ERROR));
-    char * appPath = getPayloadAppPath();
+    char * appPath = getPayloadAppPath(0);
     char * name = "/embedded.mobileprovision";
     char * embeddedAppPath =  (char *) malloc(strlen(appPath) + strlen(name));
     sprintf(embeddedAppPath,"%s%s",appPath,name);
-    int cpStatus = copyFile(embedded,embeddedAppPath);
-    if (cpStatus != 0)
+    status = copyFile(embedded,embeddedAppPath);
+    if (status != 0)
     {
        terror->errorCode = ERRORCP;
        terror->errorMsg = "--拷贝描述文件失败--\n";
@@ -92,19 +90,60 @@ ERROR * startResigned(char * ipa,char *identity,char * embedded,char *output){
         printf("%s\n","copy embedded...");
     }
     //2生成plist文件
-    // security cms -D -i 
+    status = createPlist(embeddedAppPath,"~/resign_temp_app/Payload/entitlements.plist");
+    if (status != 0)
+    {
+       terror->errorCode = ERRORCREATE;
+       terror->errorMsg = "--创建描述文件失败--\n";
+       goto close;
+    }else{
+        printf("%s\n","Create Plist...");
+    }
 
-
-
-
-
-
-
+    resignFile(identity,appPath);
 
     terror->errorCode = ERRORNULL;
 close:
     free(terror);
     return terror;
+}
+
+int resignFile(char * identity,char * appPath){
+    puts(identity);
+    puts(appPath);
+    char * appMachO = getPayloadAppPath(1);
+    printf("%s\n",appMachO);
+    // char * cmd = "codesign -fs";
+
+    return 0;
+}
+
+int createPlist(char *empath,char * plistpath){
+    char * fullPlisyCmd = "security cms -D -i ";
+    char * fullPlist = " ~/resign_temp_app/Payload/entitlements_full.plist";
+    char * cmd =  (char *) malloc(strlen(fullPlisyCmd) + strlen(empath) + strlen(fullPlist)+1);
+    sprintf(cmd,"%s%s>%s",fullPlisyCmd,empath,fullPlist);
+    int status = system(cmd);
+    if (status != 0)
+    {
+        free(cmd);
+        perror("system()");
+        return -1;
+    }
+    free(cmd);
+
+    char * plistCmd = "/usr/libexec/PlistBuddy -x -c \"Print:Entitlements\"";
+    char * createPlistCmd =  (char *) malloc(strlen(plistCmd) + strlen(fullPlist) + strlen(plistpath)+1);
+    sprintf(createPlistCmd,"%s%s>%s",plistCmd,fullPlist,plistpath);
+    status = system(createPlistCmd);
+    if (status != 0)
+    {
+        free(createPlistCmd);
+        perror("system()");
+        return -1;
+    }
+    free(createPlistCmd);
+    return 0;
 }
 
 
@@ -114,11 +153,11 @@ char * appendPayloadCmd(char * ipa){
     char * unzipCmd2  = " -d ";
     char * payloadCmd = (char *) malloc(strlen(mkCmd) + strlen(unzipCmd1) + strlen(unzipCmd2) + strlen(payloadPath)*2 + strlen(ipa));
     sprintf(payloadCmd, "%s%s%s%s%s%s", mkCmd, payloadPath,unzipCmd1,ipa,unzipCmd2,payloadPath);
-    free(payloadCmd);
+    // free(payloadCmd);
     return payloadCmd;
 }
 
-char * getPayloadAppPath(){
+char * getPayloadAppPath(int status){
     char * lsCmd = "ls ~/resign_temp_app/Payload/ | grep .app";
     FILE* fp = popen(lsCmd,"r");
     if (fp == NULL)
@@ -130,6 +169,15 @@ char * getPayloadAppPath(){
      while (fgets(line, _LINE_LENGTH, fp) != NULL){
         appName = strtok(line,"\n");
      }
+
+     if (status == 1)
+     {
+        appName = strtok(appName,".");
+        char * appNames = (char *) malloc(strlen(appName));
+        sprintf(appNames,"%s",appName);
+        return appNames;
+     }
+
      char * payload = "Payload/";
      char * appPath =  (char *) malloc(strlen(payloadPath) + strlen(payload) + strlen(appName));
      sprintf(appPath,"%s%s%s",payloadPath,payload,appName);
@@ -144,6 +192,7 @@ int copyFile(char * file1 , char * dir){
     int status = system(cpCmd);
     if (status != 0)
     {
+      free(cpCmd);
       perror("system()");
       return -1;
     }

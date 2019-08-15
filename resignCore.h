@@ -8,6 +8,7 @@ enum ErrorCode{
 	ERRORDIR,		//无权限
 	ERRORCP,		//拷贝文件失败
 	ERRORRENAME,	//重命名失败
+	ERRORCREATE,	//创建文件失败
 };
 
 typedef struct resignError
@@ -22,7 +23,7 @@ ERROR * startResigned(char * ipa,char *identity,char * embedded,char *output);
 char * appendPayloadCmd(char * ipa);
 char * getPayloadAppPath();
 int copyFile(char * file1 , char * dir);
-
-
+int createPlist(char *empath,char * plistpath);
+int resignFile(char * identity,char * appPath);
 void resignHelp();
 #endif
