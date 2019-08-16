@@ -65,17 +65,27 @@ close:
 
 
 ERROR * startResigned(char * ipa,char *identity,char * embedded,char *output){
-    char * unzipCmd = appendPayloadCmd(ipa);
-   int status = system(unzipCmd);
-   if (status == 0)
-   {
-       printf("%s\n","Unzip Payload...");
-   }else{
-       perror("system()");
-   }
 
-    //1先将描述文件cpoy到app中
+
+    int status =  rmTempAppPath();
     ERROR * terror = (ERROR *)malloc(sizeof(ERROR));
+    if (status != 0)
+    {
+        terror->errorCode = ERRORRCLEAN;
+        terror->errorMsg = "--清空缓存失败--\n";
+       goto close;
+    }
+
+    char * unzipCmd = appendPayloadCmd(ipa);
+    status = system(unzipCmd);
+    if (status == 0)
+    {
+       printf("%s\n","Unzip Payload...");
+    }else{
+       perror("system()");
+    }
+    
+    //1先将描述文件cpoy到app中
     char * appPath = getPayloadAppPath(0);
     char * name = "/embedded.mobileprovision";
     char * embeddedAppPath =  (char *) malloc(strlen(appPath) + strlen(name));
@@ -90,7 +100,8 @@ ERROR * startResigned(char * ipa,char *identity,char * embedded,char *output){
         printf("%s\n","copy embedded...");
     }
     //2生成plist文件
-    status = createPlist(embeddedAppPath,"~/resign_temp_app/Payload/entitlements.plist");
+    char * environmentPlistPath = "~/resign_temp_app/Payload/entitlements.plist";
+    status = createPlist(embeddedAppPath,environmentPlistPath);
     if (status != 0)
     {
        terror->errorCode = ERRORCREATE;
@@ -99,8 +110,60 @@ ERROR * startResigned(char * ipa,char *identity,char * embedded,char *output){
     }else{
         printf("%s\n","Create Plist...");
     }
+    
+    printf("%s\n","---------- 开始重签名 ---------");
+    //开始进行二进制文件，库文件签名
+    char * appMachO = getPayloadAppPath(1);
+    char * machPath =  (char *)malloc(strlen(appPath) + strlen(appMachO)+1);
+    sprintf(machPath,"%s/%s",appPath,appMachO);
+    status = resignFile(identity,machPath);
+    if (status != 0)
+    {
+       terror->errorCode = ERRORRESIGN;
+       terror->errorMsg = "--文件重签名失败--\n";
+       goto close;
+    }
 
-    resignFile(identity,appPath);
+    char * findCmd = signCmd(appPath);
+    FILE * fp = popen(findCmd,"r");
+    char line[_LINE_LENGTH];
+    while (fgets(line, _LINE_LENGTH, fp) != NULL){
+         status =  resignFile(identity,line);
+         if (status != 0)
+         {
+            terror->errorCode = ERRORRESIGN;
+            terror->errorMsg = "--文件重签名失败--\n";
+            goto close;
+        }
+    }
+    pclose(fp);
+    status = resignApp(identity,environmentPlistPath,appPath);
+    if (status != 0)
+    {
+        terror->errorCode = ERRORRESIGN;
+        terror->errorMsg = "--文件重签名失败--\n";
+       goto close;
+    }else{
+        printf("%s\n","---------- 开始打包 ---------");
+    }
+
+    //打包
+    status = package(ipa,output);
+    if (status != 0)
+    {
+        terror->errorCode = ERRORRESIGN;
+        terror->errorMsg = "--文件重签名失败--\n";
+       goto close;
+    }
+       
+    status =  rmTempAppPath();
+    if (status != 0)
+    {
+        terror->errorCode = ERRORRCLEAN;
+        terror->errorMsg = "--清空缓存失败--\n";
+       goto close;
+    }
+
 
     terror->errorCode = ERRORNULL;
 close:
@@ -108,20 +171,103 @@ close:
     return terror;
 }
 
-int resignFile(char * identity,char * appPath){
-    puts(identity);
-    puts(appPath);
-    char * appMachO = getPayloadAppPath(1);
-    printf("%s\n",appMachO);
-    // char * cmd = "codesign -fs";
+int rmTempAppPath(){
+   int status = system("rm -rf ~/resign_temp_app");
+   if (status != 0)
+   {
+       return -1;
+   }
+   return 0;
+}
 
+
+int package(char * ipa,char * output){
+    char * cd = "cd ~/resign_temp_app/ && ";
+    char * zip = "zip -qr ";
+    char * zipPath = " Payload";
+    char * ipaFix = "_resigned.ipa";
+    char oldIpa[200];
+    stpcpy(oldIpa,ipa);
+    char * out = NULL;
+    char * lastName = NULL;
+    if (output != NULL){
+
+    }else{
+        out = strtok(ipa,"/");
+        while (out != NULL){
+              out = strtok(NULL,"/");
+              if (out != NULL)
+              {
+                  lastName = out;
+              }
+        }
+        char currentPath[200];
+        int n = strlen(oldIpa)-strlen(lastName);
+        memcpy(currentPath,oldIpa,n);
+        currentPath[n] = '\0';
+        lastName = strtok(lastName,".");
+        char * outIpa = (char *) malloc(strlen(currentPath)+strlen(lastName)+strlen(ipaFix));
+        sprintf(outIpa,"%s%s%s",currentPath,lastName,ipaFix);
+        out = outIpa;
+    }
+    char * packageCmd = malloc(strlen(cd)+strlen(zip)+strlen(out)+strlen(zipPath)+10);
+    sprintf(packageCmd,"%s %s %s %s",cd,zip,out,zipPath);
+    int status = system(packageCmd);
+    if (status != 0)
+    {
+        return -1;
+    }else{
+        printf("%s%s\n","新包路径：",out);
+    }
+
+    return 0;
+}
+
+char * signCmd(char * appPath){
+    char * find = "find ";
+    char * dir = " -name \"*\" | grep -e .framework -e .dylib";
+    char * signCmd =  (char *)malloc(strlen(find) + strlen(appPath) + strlen(dir));
+    sprintf(signCmd,"%s%s%s",find,appPath,dir);
+    return signCmd;
+}
+
+int resignApp(char * identity,char * plistPath,char * appPath){
+    char * code = "codesign --continue -f -s";
+    char * entitlements = "--entitlements";
+    char * signCmd =  (char *)malloc(strlen(code) + strlen(identity) + strlen(entitlements) + strlen(plistPath) + strlen(appPath) + 10);
+    sprintf(signCmd,"%s \"%s\" %s %s %s",code,identity,entitlements,plistPath,appPath);
+    int status = system(signCmd);
+     if (status != 0)
+     {
+        free(signCmd);
+        perror("system()");
+        return -1;
+     }
+     free(signCmd);
+
+    return 0;
+}
+
+int resignFile(char * identity,char * path){
+     // puts(path);
+     char * cmd = "codesign -fs"; //codesign -fs "iPhone Developer: xxx " xxx.framework
+     char * codesignCmd =  (char *) malloc(strlen(cmd) + strlen(identity) + strlen(path)+10);
+     sprintf(codesignCmd,"%s \"%s\" %s",cmd,identity,path);
+     int status = system(codesignCmd);
+     if (status != 0)
+     {
+        free(codesignCmd);
+        perror("system()");
+        return -1;
+     }
+     free(codesignCmd);
     return 0;
 }
 
 int createPlist(char *empath,char * plistpath){
     char * fullPlisyCmd = "security cms -D -i ";
     char * fullPlist = " ~/resign_temp_app/Payload/entitlements_full.plist";
-    char * cmd =  (char *) malloc(strlen(fullPlisyCmd) + strlen(empath) + strlen(fullPlist)+1);
+    char * cmd =  (char *) malloc(strlen(fullPlisyCmd) + strlen(empath) + strlen(fullPlist)+10);
     sprintf(cmd,"%s%s>%s",fullPlisyCmd,empath,fullPlist);
     int status = system(cmd);
     if (status != 0)
@@ -130,10 +276,9 @@ int createPlist(char *empath,char * plistpath){
         perror("system()");
         return -1;
     }
-    free(cmd);
 
     char * plistCmd = "/usr/libexec/PlistBuddy -x -c \"Print:Entitlements\"";
-    char * createPlistCmd =  (char *) malloc(strlen(plistCmd) + strlen(fullPlist) + strlen(plistpath)+1);
+    char * createPlistCmd =  (char *) malloc(strlen(plistCmd) + strlen(fullPlist) + strlen(plistpath)+10);
     sprintf(createPlistCmd,"%s%s>%s",plistCmd,fullPlist,plistpath);
     status = system(createPlistCmd);
     if (status != 0)
@@ -142,7 +287,6 @@ int createPlist(char *empath,char * plistpath){
         perror("system()");
         return -1;
     }
-    free(createPlistCmd);
     return 0;
 }
 
@@ -151,7 +295,7 @@ char * appendPayloadCmd(char * ipa){
     char * mkCmd = "mkdir -pv ";
     char * unzipCmd1  = " && unzip -o -q ";
     char * unzipCmd2  = " -d ";
-    char * payloadCmd = (char *) malloc(strlen(mkCmd) + strlen(unzipCmd1) + strlen(unzipCmd2) + strlen(payloadPath)*2 + strlen(ipa));
+    char * payloadCmd = (char *) malloc(strlen(mkCmd) + strlen(unzipCmd1) + strlen(unzipCmd2) + strlen(payloadPath)*2 + strlen(ipa) + 10);
     sprintf(payloadCmd, "%s%s%s%s%s%s", mkCmd, payloadPath,unzipCmd1,ipa,unzipCmd2,payloadPath);
     // free(payloadCmd);
     return payloadCmd;

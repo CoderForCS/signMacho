@@ -45,7 +45,6 @@ int main(int argc, char *argv[]){
 			ERROR * error = findIdentity(argv[j+1]);
 			if (error->errorCode == ERRORNULL)
 			{
-				printf("P12 Ready: %s\n", argv[j+1]);
 				identity = argv[j+1];
 			}else{
 				printf("%s\n",error->errorMsg);
@@ -75,7 +74,7 @@ int main(int argc, char *argv[]){
 		}
 		j++;
 	}
-	printf("%s\n","------🔥. 开始签名 ------");
+	printf("%s\n","---------- 开始工作 ---------");
 	ERROR * error = startResigned(ipaPtah,identity,embedded,output);
 	if (error->errorCode != ERRORNULL)
 	{
