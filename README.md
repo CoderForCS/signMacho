@@ -1,11 +1,11 @@
-#SignMacho#
+# SignMacho#
   Use sign iOS ipa. 一款用于iOS重签名的命令行工具。
 
-##install##
+## install
   *手工安装  install
   > sh ./install.sh
 
-##Usage##
+## Usage
 
 -----
   Usage: resign -i <ipa path> -c <identity name> -e <profile path> [options]
@@ -18,5 +18,5 @@
 
 
 
-##Example##
+## Example
  resign -i /Desktop/myapp/sign.ipa -c "XXXXCo., Ltd." -e /Desktop/myapp/embedded.mobileprovision -o /Desktop
