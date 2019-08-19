@@ -1,5 +1,8 @@
 # SignMacho
-  Use sign iOS ipa. 一款用于iOS重签名的命令行工具。
+[![GitHub license](https://img.shields.io/badge/license-MIT-lightgrey.svg)](https://github.com/CoderForCS/signMacho/blob/master/README.md)
+
+  Use sign iOS ipa. 一款用于iOS重签名的命令行工具。  
+
 
 ## install
   手工安装  install
