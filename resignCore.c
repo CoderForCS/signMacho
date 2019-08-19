@@ -84,7 +84,7 @@ ERROR * startResigned(char * ipa,char *identity,char * embedded,char *output){
     }else{
        perror("system()");
     }
-    
+
     //1先将描述文件cpoy到app中
     char * appPath = getPayloadAppPath(0);
     char * name = "/embedded.mobileprovision";
@@ -152,7 +152,7 @@ ERROR * startResigned(char * ipa,char *identity,char * embedded,char *output){
     if (status != 0)
     {
         terror->errorCode = ERRORRESIGN;
-        terror->errorMsg = "--文件重签名失败--\n";
+        terror->errorMsg = "--文件打包失败--\n";
        goto close;
     }
        
@@ -184,16 +184,13 @@ int rmTempAppPath(){
 int package(char * ipa,char * output){
     char * cd = "cd ~/resign_temp_app/ && ";
     char * zip = "zip -qr ";
-    char * zipPath = " Payload";
-    char * ipaFix = "_resigned.ipa";
+    char * zipPath = "Payload";
+    char * ipaFix = "_resigned.ipa\0";
     char oldIpa[200];
     stpcpy(oldIpa,ipa);
     char * out = NULL;
     char * lastName = NULL;
-    if (output != NULL){
-
-    }else{
-        out = strtok(ipa,"/");
+    out = strtok(ipa,"/");
         while (out != NULL){
               out = strtok(NULL,"/");
               if (out != NULL)
@@ -201,16 +198,32 @@ int package(char * ipa,char * output){
                   lastName = out;
               }
         }
-        char currentPath[200];
-        int n = strlen(oldIpa)-strlen(lastName);
-        memcpy(currentPath,oldIpa,n);
-        currentPath[n] = '\0';
-        lastName = strtok(lastName,".");
+    char currentPath[200];
+    int n = strlen(oldIpa)-strlen(lastName);
+    memcpy(currentPath,oldIpa,n);
+    currentPath[n] = '\0';
+    lastName = strtok(lastName,".");
+
+    if (output != NULL){
+        char * outlastChar = &(output[strlen(output)-1]);
+        int outStatus = memcmp("/",outlastChar,1);
+        if (outStatus == 0 )
+        {
+            char * outIpa = (char *) malloc(strlen(output)+strlen(lastName)+strlen(ipaFix));
+            sprintf(outIpa,"%s%s%s",output,lastName,ipaFix);
+            out = outIpa;
+        }else{
+            char * outIpa = (char *) malloc(strlen(output)+strlen(lastName)+strlen(ipaFix)+1);
+            sprintf(outIpa,"%s/%s%s",output,lastName,ipaFix);
+            out = outIpa;
+        }
+    }else{
         char * outIpa = (char *) malloc(strlen(currentPath)+strlen(lastName)+strlen(ipaFix));
         sprintf(outIpa,"%s%s%s",currentPath,lastName,ipaFix);
         out = outIpa;
     }
     char * packageCmd = malloc(strlen(cd)+strlen(zip)+strlen(out)+strlen(zipPath)+10);
+
     sprintf(packageCmd,"%s %s %s %s",cd,zip,out,zipPath);
     int status = system(packageCmd);
     if (status != 0)
@@ -232,7 +245,7 @@ char * signCmd(char * appPath){
 }
 
 int resignApp(char * identity,char * plistPath,char * appPath){
-    char * code = "codesign --continue -f -s";
+    char * code = "/usr/bin/codesign --continue -f -s";
     char * entitlements = "--entitlements";
     char * signCmd =  (char *)malloc(strlen(code) + strlen(identity) + strlen(entitlements) + strlen(plistPath) + strlen(appPath) + 10);
     sprintf(signCmd,"%s \"%s\" %s %s %s",code,identity,entitlements,plistPath,appPath);
@@ -243,14 +256,14 @@ int resignApp(char * identity,char * plistPath,char * appPath){
         perror("system()");
         return -1;
      }
-     free(signCmd);
+     // free(signCmd);
 
     return 0;
 }
 
 int resignFile(char * identity,char * path){
      // puts(path);
-     char * cmd = "codesign -fs"; //codesign -fs "iPhone Developer: xxx " xxx.framework
+     char * cmd = "/usr/bin/codesign -fs"; //codesign -fs "iPhone Developer: xxx " xxx.framework
      char * codesignCmd =  (char *) malloc(strlen(cmd) + strlen(identity) + strlen(path)+10);
      sprintf(codesignCmd,"%s \"%s\" %s",cmd,identity,path);
      int status = system(codesignCmd);

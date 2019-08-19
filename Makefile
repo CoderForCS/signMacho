@@ -9,4 +9,4 @@ resignCore.o:resignCore.c resignCore.h
 	$(CC) -c $(CLANGS) -o $@ $<
 .PHONY:clean
 clean:
-	rm *.o resign
+	rm *.o
