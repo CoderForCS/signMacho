@@ -4,10 +4,11 @@
   Use sign iOS ipa. 一款用于iOS重签名的命令行工具。  
 
 
-## install
-  手工安装  install
+## installation
+  * 手工安装
 >   sh ./install.sh
-
+  * brew安装
+>  brew tap coderforcs/resign && brew install resign
 ## Usage
 
     resign version 1.0 Help
