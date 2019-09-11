@@ -6,7 +6,7 @@
 
 ## installation
   * 手工安装
->   sh ./install.sh
+>   sudo sh ./install.sh
   * brew安装
 >  brew tap coderforcs/resign && brew install resign
 ## Usage
